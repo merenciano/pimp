@@ -90,14 +90,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Performance2.cpp" />
+    <ClCompile Include="pimp-gpu.cpp" />
+    <ClCompile Include="pimp.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ImgManipulation.h" />
     <ClInclude Include="Performance2.h" />
+    <ClInclude Include="pimp.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />

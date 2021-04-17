@@ -2,13 +2,11 @@
 
 #include "stdafx.h"
 #include "Performance2.h"
-#include "ImgManipulation.h"
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
+#include "pimp.h"
 
 #include <iostream>
+#include <list>
+#include <future>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -102,7 +100,6 @@ class TIMER
 };
 
 CWinApp theApp;  // The one and only application object
-
 using namespace std;
 
 int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
@@ -124,31 +121,45 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 
 		//--------------------------------------------------------------------------------------
 		// Insert your code from here...
-        int width, height, channels;
-        unsigned char *image = stbi_load("../SampleImages/IMG_1.JPG", &width, &height, &channels, 0);
-        if (image == nullptr)
-		{
-            printf("Error in loading the image\n");
-			return 1;
+        {
+            WIN32_FIND_DATAA ffd;
+            HANDLE h_find;
+			std::string target_dir;
+            std::list<pimp::Image> images;
+            std::list<std::future<void>> futures;
+
+			if (argc != 2)
+			{
+				target_dir = "..\\SampleImages\\*.JP*G";
+			}
+			else
+			{
+                target_dir = (char*)argv[1];
+			}	
+
+            printf("Target directory is %s\n", target_dir.c_str());
+
+            h_find = FindFirstFileA(target_dir.c_str(), &ffd);
+            if (INVALID_HANDLE_VALUE == h_find)
+            {
+				printf("Error finding files\n");
+				return 1;
+            }
+
+            do
+            {
+                std::string fname(ffd.cFileName);
+                int dotpos = fname.find_last_of(".");
+                fname = fname.substr(0, dotpos);
+                images.emplace_back(fname);
+            } while (FindNextFileA(h_find, &ffd));
+
+            for (auto &img : images)
+            {
+                futures.emplace_back(std::async(std::launch::async, pimp::Image::ProcessImg, img));
+                //pimp::Image::ProcessImg(img);
+            }
         }
-        
-		pimp::Image img;
-		img.pix = image;
-		img.height = height;
-		img.width = width;
-
-        cout << width << " h:" << height;
-
-		pimp::GrayScale(&img);
-		pimp::RotateClockwise(&img);
-		pimp::Brighten(&img);
-
-		stbi_write_png("../Output/IMG_1.PNG", img.width, img.height, 3, img.pix, img.width * 3);
-        //stbi_write_jpg("../Output/RTEST_1.JPG", img.width, img.height, 3, img.pix, 100);
-		stbi_image_free(image);
-		free(img.pix);
-
-
 
 		//-------------------------------------------------------------------------------------------------------
 		// How long did it take?...   DO NOT CHANGE FROM HERE...
