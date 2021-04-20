@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "pimp.h"
+#include <thread>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -15,7 +16,19 @@ void Image::ProcessImg(Image &img)
     img.greyBrightRotate();
     img.bilinearScale();
 
-    img.saveAsPNG();
+    int err = img.saveAsPNG();
+
+    // I am the first one offended by the while loop I just wrote.
+    // But in this particular case I know for sure that the memory will be avaiable
+    // soon when other threads finish their task and release.
+    // If the code is compiled in 64 bits this never happens but in 32 bits it does
+    // when the cpu supports more than 8 threads and the images are huge (like the SampleImages).
+    while (err == PIMP_ERROR)
+    {
+        printf("%s: Memory allocation failed while encoding to PNG, trying again in 0.5 seconds.\n", img.name_.c_str());
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        err = img.saveAsPNG();
+    }
     img.reset();
 #if PIMP_VERBOSE == 1
     printf("%s: Done!\n", img.name().c_str());
@@ -83,7 +96,7 @@ int Image::saveAsPNG()
 
 int Image::saveAsPNG(std::string path)
 {
-    stbi_write_png_compression_level = 4;
+    stbi_write_png_compression_level = 0;
     int err = stbi_write_png(path.c_str(), width_, height_, 1, pix_, width_);
     if (err == 0)
     {

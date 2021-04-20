@@ -21,7 +21,7 @@
 
 #define PIMP_MULTITHREADING 1
 #define PIMP_GPU 1
-#define PIMP_VERBOSE 0
+#define PIMP_VERBOSE 1
 
 #include <string>
 
