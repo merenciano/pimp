@@ -27,6 +27,9 @@
     <ClCompile Include="pimp-gpu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="pimp-cpu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Performance2.h">

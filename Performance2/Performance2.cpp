@@ -121,12 +121,21 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 
 		//--------------------------------------------------------------------------------------
 		// Insert your code from here...
+
+		// Pushing a new scope here so the future destructors
+		// will wait until the threads close before showing the timer
         {
             WIN32_FIND_DATAA ffd;
             HANDLE h_find;
-			std::string target_dir;
-            std::list<pimp::Image> images;
-            std::list<std::future<void>> futures;
+			string target_dir;
+            list<pimp::Image> images;
+
+			// Async returns need to be stored outside of the
+			// for loop where async is called because if async is called
+			// without storing its return the future is created inside
+			// of the scope of the loop and stops the loop when the destructor
+			// is called until the task is completed (so no parallelization)
+            list<future<void>> futures;
 
 			if (argc != 2)
 			{
@@ -137,29 +146,37 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
                 target_dir = (char*)argv[1];
 			}	
 
-            printf("Target directory is %s\n", target_dir.c_str());
+            cout << "Input files: " << target_dir.c_str() << endl;
 
             h_find = FindFirstFileA(target_dir.c_str(), &ffd);
             if (INVALID_HANDLE_VALUE == h_find)
             {
-				printf("Error finding files\n");
+				cout << "Error finding files" << endl;
 				return 1;
             }
 
             do
             {
-                std::string fname(ffd.cFileName);
+                string fname(ffd.cFileName);
                 int dotpos = fname.find_last_of(".");
                 fname = fname.substr(0, dotpos);
                 images.emplace_back(fname);
             } while (FindNextFileA(h_find, &ffd));
 
+			CreateDirectoryA("..\\Output", 0);
+			cout << "Output files: ..\\Output\\*.PNG" << endl;
+
             for (auto &img : images)
             {
-                futures.emplace_back(std::async(std::launch::async, pimp::Image::ProcessImg, img));
-                //pimp::Image::ProcessImg(img);
+#if PIMP_MULTITHREADING == 1
+                futures.emplace_back(async(launch::async, pimp::Image::ProcessImg, img));
+#else
+                pimp::Image::ProcessImg(img);
+#endif
             }
+
         }
+		pimp::Close();
 
 		//-------------------------------------------------------------------------------------------------------
 		// How long did it take?...   DO NOT CHANGE FROM HERE...

@@ -12,12 +12,14 @@ void Image::ProcessImg(Image &img)
 {
     img.loadJPG();
 
-    img.allEffectsOptimized();
-    //img.doubleSizeBilinearInterp();
-    img.bilinearInterpScalation(2.0f);
+    img.greyBrightRotate();
+    img.bilinearScale();
 
     img.saveAsPNG();
     img.reset();
+#if PIMP_VERBOSE == 1
+    printf("%s: Done!\n", img.name().c_str());
+#endif
 }
 
 Image::Image()
@@ -50,6 +52,9 @@ void Image::reset()
 
 int Image::loadJPG()
 {
+#if PIMP_VERBOSE == 1
+    printf("%s: Loading JPG...\n", name_.c_str());
+#endif
     std::string path = "../SampleImages/" + name_ + ".JPG";
     return loadJPG(path);
 }
@@ -69,7 +74,9 @@ int Image::loadJPG(std::string path)
 
 int Image::saveAsPNG()
 {
-    printf("Exporting %s as PNG...\n", name_.c_str());
+#if PIMP_VERBOSE == 1
+    printf("%s: Exporting as PNG...\n", name_.c_str());
+#endif
     std::string path = "../Output/" + name_ + ".PNG";
     return saveAsPNG(path);
 }
@@ -80,64 +87,102 @@ int Image::saveAsPNG(std::string path)
     int err = stbi_write_png(path.c_str(), width_, height_, 1, pix_, width_);
     if (err == 0)
     {
-        printf("Save as PNG failed for image %s\n", name_.c_str());
+        printf("%s: Exporting as PNG failed\n", name_.c_str());
         return PIMP_ERROR;
     }
-    printf("Finished with %s\n", name_.c_str());
     return PIMP_SUCCESS;
 }
-
-void Image::saveAsJPG()
+#if 0
+int Image::saveAsPNGwithlibpng(std::string path)
 {
-    std::string path = "../Output/" + name_ + ".JPG";
-    stbi_write_jpg(path.c_str(), width_, height_, 3, pix_, 100);
+    // open file
+    // note: libpng tells us to make sure we open in binary mode
+    FILE* fp = fopen(path.c_str(), "wb");
+    if (fp == NULL)
+    {
+        printf("Error: %s file cannot be opened for writing", path.c_str());
+        return PIMP_ERROR;
+    }
+
+    // create png structure
+    png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (png_ptr == NULL)
+    {
+        // cannot create png structure
+        fprintf(stderr, "cannot create png structure\n");
+
+        // close file
+        fclose(fp);
+        fp = NULL;
+        return false;
+    }
+
+    // create png-info structure
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    if (info_ptr == NULL)
+    {
+        fprintf(stderr, "cannot create png info structure\n");
+
+        // clear png resource
+        png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
+
+        // close file
+        fclose(fp);
+        fp = NULL;
+        return false;
+    }
+
+  // call this once as all relevant operations all happen in just one routine
+    if (setjmp(png_jmpbuf(png_ptr)))
+    {
+        fprintf(stderr, "error png's set jmp for write\n");
+        /* clear png resource */
+        png_destroy_write_struct(&png_ptr, &info_ptr);
+        /* close file */ 
+        fclose(fp);     
+        fp = NULL;      
+        return false;    
+    }
+
+    // set up input code
+    png_init_io(png_ptr, fp);
+
+    // set important parts of png_info first
+    png_set_IHDR(png_ptr,
+        info_ptr,
+        width_,
+        height_,
+        8,
+        PNG_COLOR_TYPE_GRAY,
+        PNG_INTERLACE_NONE,
+        PNG_COMPRESSION_TYPE_DEFAULT,
+        PNG_FILTER_TYPE_DEFAULT);
+    // <... add any png_set_*() function in any order if need here
+
+    // ready to write info we've set before actual image data
+    png_write_info(png_ptr, info_ptr);
+
+    // now it's time to write actual image data
+    png_write_image(png_ptr, (png_bytepp)pix_);
+
+    // done writing image
+    // pass NULL as we don't need to write any set data i.e. comment
+    png_write_end(png_ptr, NULL);
+
+    // clear png resource
+    png_destroy_write_struct(&png_ptr, &info_ptr);
+
+    // close file
+    fclose(fp);
+    fp = NULL;
+
+    return true;
 }
+#endif
 
 std::string Image::name() const
 {
     return name_;
-}
-
-#if PIMP_GPU == 0
-
-void Image::bilinearInterpScalation(float amount)
-{
-    int new_width = width_ * amount;
-    int new_height = height_ * amount;
-    unsigned char* dst = (unsigned char*)malloc(new_width * new_height);
-    printf("Scaling %s...\n", name_.c_str());
-    if (!dst)
-    {
-        printf("Could not allocate space for scale %s\n", name_.c_str());
-        return;
-    }
-    for (int y = 0; y < new_height; ++y)
-    {
-        for (int x = 0; x < new_width; ++x)
-        {
-            // Destination pixel index
-            int i = (y * new_width + x);
-
-            // Source relative position with offset (decimals)
-            float gx = min(x / (float)(new_width) * (width_) - 0.5f, width_ - 2);
-            float gy = min(y / (float)(new_height) * (height_) - 0.5f, height_ - 2);
-            // Top-Left pixel from source image
-            int gxi = (int)gx;
-            int gyi = (int)gy;
-
-            // Getting corner colors for interpolation
-            unsigned char tl = pix_[gyi * width_ + gxi];
-            unsigned char tr = pix_[gyi * width_ + gxi + 1];
-            unsigned char bl = pix_[(gyi + 1) * width_ + gxi];
-            unsigned char br = pix_[(gyi + 1) * width_ + gxi + 1];
-
-            dst[i] = Blerp(tl, tr, bl, br, gx - gxi, gy - gyi);
-        }
-    }
-    free(pix_);
-    pix_ = dst;
-    width_ = new_width;
-    height_ = new_height;
 }
 
 void Image::doubleSizeBilinearInterp()
@@ -145,7 +190,6 @@ void Image::doubleSizeBilinearInterp()
     int new_width = width_ * 2;
     int new_height = height_ * 2;
     unsigned char* dst = (unsigned char*)malloc(new_width * new_height);
-    printf("Scaling %s...\n", name_.c_str());
     while (!dst)
     {
         dst = (unsigned char*)malloc(new_width * new_height);
@@ -180,40 +224,3 @@ void Image::doubleSizeBilinearInterp()
     width_ = new_width;
     height_ = new_height;
 }
-
-void Image::allEffectsOptimized()
-{
-    unsigned char* dst = (unsigned char*)malloc(width_ * height_);
-    printf("Transforming %s...\n", name_.c_str());
-    if (!dst)
-    {
-        printf("Could not allocate space for rotate on %s\n", name_.c_str());
-        return;
-    }
-
-    for (int y = 0; y < height_; ++y)
-    {
-        for (int x = 0; x < width_; ++x)
-        {
-            int i = (y * width_ + x) * 3;
-            int idst = x * height_ + (height_ - 1 - y);
-
-            // Grayscale
-            unsigned char value = (unsigned char)(
-                pix_[i + 0] * 0.2627f +
-                pix_[i + 1] * 0.6780f +
-                pix_[i + 2] * 0.0593f);
-
-            // Brightness
-            dst[idst] = min((unsigned short)(value * 1.2f), 255);
-        }
-    }
-
-    free(pix_);
-    pix_ = dst;
-    int tmp = height_;
-    height_ = width_;
-    width_ = tmp;
-}
-
-#endif // PIMP_GPU

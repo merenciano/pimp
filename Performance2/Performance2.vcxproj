@@ -90,6 +90,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Performance2.cpp" />
+    <ClCompile Include="pimp-cpu.cpp" />
     <ClCompile Include="pimp-gpu.cpp" />
     <ClCompile Include="pimp.cpp" />
     <ClCompile Include="stdafx.cpp">
