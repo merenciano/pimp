@@ -70,8 +70,6 @@ public:
     int loadJPG(std::string path);
     int saveAsPNG(std::string path);
 
-    void doubleSizeBilinearInterp();
-
     // Exercise effects
     void greyBrightRotate();
     void bilinearScale();
